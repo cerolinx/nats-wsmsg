@@ -22,5 +22,11 @@ func GlobalFlag() []cli.Flag {
 			Usage:  "verbose. more message",
 			EnvVar: "WSMSG_VERBOSE",
 		},
+		cli.StringFlag{
+			Name:   "nats_url",
+			Usage:  "nats url",
+			Value:  "internal",
+			EnvVar: "NATS_URL",
+		},
 	}
 }

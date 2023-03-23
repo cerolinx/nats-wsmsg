@@ -4,17 +4,25 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/octu0/nats-wsmsg)](https://goreportcard.com/report/github.com/octu0/nats-wsmsg)
 [![Releases](https://img.shields.io/github/v/release/octu0/nats-wsmsg)](https://github.com/octu0/nats-wsmsg/releases)
 
-[nats.io](https://nats.io/) based websocket message pubsub/queue server.
+[nats.io](https://nats.io/) based websocket message pubsub/queue/key-value server.
 
 nats-wsmsg embeds [nats-server](https://github.com/nats-io/nats-server) and provides high performance, message (queue) server.
 
 ## Quick Start
 
+```
+$ docker run --network host -p 4222:4222 nats -js
+
+$ curl -X POST http://localhost:8080/kv/user2/order5 -d '{"from":"Bordeaux","to":"Toulouse","vehicleId":"878"}'
+
+let ws = new WebSocket(`ws://localhost:8080/ws/kv/user2`)
+```
+
 Download latest [release](https://github.com/octu0/nats-wsmsg/releases) version appropriate for operating architecture.  
 Run.
 
 ```
-$ ./nats-wsmsg -p 8080
+$ ./nats-wsmsg -nats_url localhost:4222 websocket
 ```
 
 ### example Pub/Sub

@@ -8,6 +8,7 @@ type Config struct {
 	LogDir      string
 	DebugMode   bool
 	VerboseMode bool
+	NatsUrl     string
 }
 
 func CreateConfig(c *cli.Context) Config {
@@ -15,5 +16,6 @@ func CreateConfig(c *cli.Context) Config {
 		LogDir:      c.GlobalString("log-dir"),
 		DebugMode:   c.GlobalBool("debug"),
 		VerboseMode: c.GlobalBool("verbose"),
+		NatsUrl:     c.GlobalString("nats_url"),
 	}
 }

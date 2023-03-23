@@ -2,13 +2,14 @@ package server
 
 import (
 	"fmt"
+	"github.com/nats-io/nats-server/v2/server"
+	//server "github.com/nats-io/nats-server/v2/test"
 	"log"
 	"net"
 	"os/signal"
 	"syscall"
 	"time"
 
-	"github.com/nats-io/nats-server/v2/server"
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fasthttp/reuseport"
 	"gopkg.in/urfave/cli.v1"
@@ -38,32 +39,40 @@ func websocketServerAction(c *cli.Context) error {
 	ctx, stop := signal.NotifyContext(parent, syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	ns := server.New(&server.Options{
-		Host:         "127.0.0.1",
-		Port:         -1,
-		HTTPPort:     -1,
-		Cluster:      server.ClusterOpts{Port: -1},
-		NoLog:        true,
-		NoSigs:       true,
-		Debug:        config.DebugMode,
-		Trace:        config.VerboseMode,
-		MaxPayload:   int32(c.Int("max-payload")),
-		PingInterval: 5 * time.Millisecond,
-		MaxPingsOut:  10,
-	})
-	ns.SetLogger(natsLogger.ServerLogger(), config.DebugMode, config.VerboseMode)
+	nats_url := config.NatsUrl
+	log.Printf("info: nats url %s", nats_url)
 
-	go ns.Start()
+	if nats_url == "internal" {
+		ns, _ := server.NewServer(&server.Options{
+			Host:         "127.0.0.1",
+			Port:         -1,
+			HTTPPort:     -1,
+			Cluster:      server.ClusterOpts{Port: -1},
+			NoLog:        true,
+			NoSigs:       true,
+			Debug:        config.DebugMode,
+			Trace:        config.VerboseMode,
+			MaxPayload:   int32(c.Int("max-payload")),
+			PingInterval: 5 * time.Millisecond,
+			MaxPingsOut:  10,
+			//JetStream:    true,
+		})
+		ns.SetLogger(natsLogger.ServerLogger(), config.DebugMode, config.VerboseMode)
 
-	if ns.ReadyForConnections(10*time.Second) != true {
-		return fmt.Errorf("unable to start a NATS Server")
+		go ns.Start()
+
+		if ns.ReadyForConnections(10*time.Second) != true {
+			return fmt.Errorf("unable to start a NATS Server")
+		}
+		defer ns.Shutdown()
+
+		log.Printf("info: local nats started: %s", ns.Addr().String())
+
+		nats_url = ns.Addr().String()
 	}
-	defer ns.Shutdown()
-
-	log.Printf("info: local nats started: %s", ns.Addr().String())
 
 	handler := http.Handler(
-		fmt.Sprintf("nats://%s", ns.Addr().String()),
+		fmt.Sprintf("nats://%s", nats_url),
 		httpLogger,
 	)
 	s := &fasthttp.Server{

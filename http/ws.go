@@ -16,6 +16,7 @@ var upgrader = websocket.FastHTTPUpgrader{
 	ReadBufferSize:    4 * 1024,
 	WriteBufferSize:   4 * 1024,
 	EnableCompression: false,
+	CheckOrigin:       func(ctx *fasthttp.RequestCtx) bool { return true },
 }
 
 func WebsocketSubscribe(rctx *fasthttp.RequestCtx, nc *nats.Conn, topic string) error {
@@ -40,6 +41,66 @@ func WebsocketSubscribe(rctx *fasthttp.RequestCtx, nc *nats.Conn, topic string) 
 		go wsWriteLoop(ctx, conn, queue)
 		wsReadLoop(ctx, cancel, conn)
 	})
+}
+
+func WebsocketSubscribeKV(rctx *fasthttp.RequestCtx, nc *nats.Conn, topic string) error {
+	return upgrader.Upgrade(rctx, func(conn *websocket.Conn) {
+		defer conn.Close()
+
+		ctx, cancel := context.WithCancel(rctx)
+		defer cancel()
+
+		queue := make(chan []byte, 64)
+
+		js, err := nc.JetStream()
+		if err != nil {
+			log.Printf("error: %+v", err)
+			return
+		}
+
+		var kv nats.KeyValue
+		if stream, _ := js.StreamInfo("KV_" + topic); stream == nil {
+			log.Printf("debug: KV %s found", topic)
+			// A key-value (KV) bucket is created by specifying a bucket name.
+			kv, _ = js.CreateKeyValue(&nats.KeyValueConfig{
+				Bucket: topic,
+			})
+		} else {
+			log.Printf("debug: KV %s not found", topic)
+			kv, _ = js.KeyValue(topic)
+		}
+
+		//keys, _ := kv.Keys()
+		//fmt.Printf("%+q\n", keys)
+		//for _, key := range keys {
+		//	log.Printf("info: getting key: %s", topic+"."+key)
+		//	entry, _ := kv.Get(key)
+		//	fmt.Printf("%s @ %d -> %q\n", entry.Key(), entry.Revision(), string(entry.Value()))
+		//	queue <- entry.Value()
+		//}
+
+		w, _ := kv.WatchAll()
+		defer w.Stop()
+
+		go kvWatchLoop(ctx, w, queue)
+
+		go wsWriteLoop(ctx, conn, queue)
+		wsReadLoop(ctx, cancel, conn)
+	})
+}
+
+func kvWatchLoop(ctx context.Context, w nats.KeyWatcher, queue chan []byte) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case kve := <-w.Updates():
+			if kve != nil {
+				log.Printf("debug: %s @ %d -> %q (op: %s)\n", kve.Key(), kve.Revision(), string(kve.Value()), kve.Operation())
+				queue <- []byte("{\"" + kve.Key() + "\":" + string(kve.Value()) + "}")
+			}
+		}
+	}
 }
 
 func WebsocketSubscribeWithQueue(rctx *fasthttp.RequestCtx, nc *nats.Conn, topic, group string) error {

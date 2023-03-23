@@ -4,7 +4,7 @@ MAIN_GO    = cmd/main.go
 _NAME      = $(shell grep -o 'AppName string = "[^"]*"' $(VERSION_GO)  | cut -d '"' -f2)
 _VERSION   = $(shell grep -o 'Version string = "[0-9]\.[0-9]\.[0-9]"' $(VERSION_GO) | cut -d '"' -f2)
 
-_GOOS      = darwin
+_GOOS      = linux
 _GOARCH    = amd64
 
 build:

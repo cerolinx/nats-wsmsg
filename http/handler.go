@@ -1,7 +1,6 @@
 package http
 
 import (
-	"fmt"
 	"github.com/fasthttp/router"
 	"github.com/nats-io/nats.go"
 	"github.com/octu0/nats-wsmsg"
@@ -125,7 +124,7 @@ func HandleSetKV(natsPool *NatsConnPool) fasthttp.RequestHandler {
 
 		topic := ctx.UserValue("topic").(string)
 		group := ctx.UserValue("group").(string)
-		log.Printf("info: KV try  %s   %s", topic, group)
+		log.Printf("debug: KV try  %s   %s", topic, group)
 		//
 		js, err := nc.JetStream()
 		if err != nil {
@@ -144,10 +143,10 @@ func HandleSetKV(natsPool *NatsConnPool) fasthttp.RequestHandler {
 			kv, _ = js.KeyValue(topic)
 		}
 		keys, _ := kv.Keys()
-		fmt.Printf("debug: keys for store %s %+q\n", topic, keys)
+		log.Printf("debug: keys for store %s %+q\n", topic, keys)
 		kv.Put(group, ctx.PostBody())
 		entry, _ := kv.Get(group)
-		fmt.Printf("info:  %s @ %d -> %q\n", entry.Key(), entry.Revision(), string(entry.Value()))
+		log.Printf("debug:  %s @ %d -> %q\n", entry.Key(), entry.Revision(), string(entry.Value()))
 	}
 }
 

@@ -8,7 +8,7 @@ _GOOS      = linux
 _GOARCH    = amd64
 
 build:
-	GOOS=$(_GOOS) GOARCH=$(_GOARCH) GO111MODULE=on go build -o $(_NAME) $(MAIN_GO)
+	GOOS=$(_GOOS) GOARCH=$(_GOARCH) CGO_ENABLED=0 GO111MODULE=on go build -o $(_NAME) $(MAIN_GO)
 
 test: deps
 	go test -v ./...

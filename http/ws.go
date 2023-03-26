@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"sync"
 	"time"
@@ -79,13 +80,13 @@ func WebsocketSubscribeKV(rctx *fasthttp.RequestCtx, nc *nats.Conn, topic string
 		//	queue <- entry.Value()
 		//}
 
-		w, _ := kv.WatchAll()
+		w, _ := kv.WatchAll(nats.IgnoreDeletes())
 		defer w.Stop()
 
 		go kvWatchLoop(ctx, w, queue)
 
 		go wsWriteLoop(ctx, conn, queue)
-		wsReadLoop(ctx, cancel, conn)
+		wsReadLoop(ctx, cancel, conn, kv)
 	})
 }
 
@@ -159,7 +160,7 @@ func wsWriteLoop(ctx context.Context, conn *websocket.Conn, queue chan []byte) {
 	}
 }
 
-func wsReadLoop(ctx context.Context, cancel context.CancelFunc, conn *websocket.Conn) {
+func wsReadLoop(ctx context.Context, cancel context.CancelFunc, conn *websocket.Conn, kv ...nats.KeyValue) {
 	defer cancel()
 
 	conn.SetReadDeadline(time.Now().Add(5 * time.Second))
@@ -175,12 +176,31 @@ func wsReadLoop(ctx context.Context, cancel context.CancelFunc, conn *websocket.
 			// nop
 		}
 
-		_, _, err := conn.ReadMessage()
+		typ, msg, err := conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				log.Printf("error: %+v", err)
 			}
 			return
+		}
+		log.Printf("info: Recieved message type %d: %s", typ, msg)
+		if len(kv) == 1 && typ == 1 {
+			var order map[string]string
+
+			err = json.Unmarshal(msg, &order)
+
+			//Checks whether the error is nil or not
+			if err != nil {
+
+				//Prints the error if not nil
+				log.Printf("error: while decoding the data %+v", err)
+			}
+			value, checkVariableName := order["delete"]
+			if checkVariableName {
+				log.Printf("info: deleting key %s", value)
+				kv[0].Purge(value)
+				kv[0].PurgeDeletes(nats.DeleteMarkersOlderThan(-1))
+			}
 		}
 	}
 }

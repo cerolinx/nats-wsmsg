@@ -3,6 +3,8 @@ package server
 import (
 	"fmt"
 	"github.com/nats-io/nats-server/v2/server"
+	"strings"
+
 	//server "github.com/nats-io/nats-server/v2/test"
 	"log"
 	"net"
@@ -19,6 +21,8 @@ import (
 	"github.com/octu0/nats-wsmsg/http"
 )
 
+//var origins []string
+
 func websocketServerAction(c *cli.Context) error {
 	parent, err := clicommon.Prepare(c)
 	if err != nil {
@@ -27,6 +31,15 @@ func websocketServerAction(c *cli.Context) error {
 	config := clicommon.ValueConfig(parent)
 	httpLogger := clicommon.ValueHttpLogger(parent)
 	natsLogger := clicommon.ValueNatsLogger(parent)
+
+	originsStr := c.String("origins")
+	log.Printf("debug: cli origins %s", originsStr)
+	if originsStr == "*" {
+		http.Origins = nil
+	} else {
+		http.Origins = strings.Split(originsStr, ",")
+		log.Printf("debug: cli origins %v", http.Origins)
+	}
 
 	listenAddr := net.JoinHostPort(c.String("ip"), c.String("port"))
 	listener, err := reuseport.Listen("tcp4", listenAddr)
@@ -132,6 +145,12 @@ func init() {
 				Name:  "http-idle-timeout",
 				Usage: "http server idle timeout(seconds)",
 				Value: 15,
+			},
+			cli.StringFlag{
+				Name:   "o, origins",
+				Usage:  "server allowed origins",
+				Value:  "*",
+				EnvVar: "ORIGINS",
 			},
 		},
 	})

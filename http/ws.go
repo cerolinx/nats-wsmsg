@@ -12,12 +12,29 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
+var Origins []string
+
 var upgrader = websocket.FastHTTPUpgrader{
 	WriteBufferPool:   new(sync.Pool),
 	ReadBufferSize:    4 * 1024,
 	WriteBufferSize:   4 * 1024,
 	EnableCompression: false,
-	CheckOrigin:       func(ctx *fasthttp.RequestCtx) bool { return true },
+	//CheckOrigin:       func(ctx *fasthttp.RequestCtx) bool { return true },
+	CheckOrigin: func(ctx *fasthttp.RequestCtx) bool {
+		if Origins == nil {
+			log.Printf("debug: allowed origins %s", "*")
+			return true
+		}
+		var origin = string(ctx.Request.Header.Peek("origin"))
+		log.Printf("debug: reported origin %s", origin)
+		log.Printf("debug: allowed origin %v", Origins)
+		for _, allowOrigin := range Origins {
+			if origin == allowOrigin {
+				return true
+			}
+		}
+		return false
+	},
 }
 
 func WebsocketSubscribe(rctx *fasthttp.RequestCtx, nc *nats.Conn, topic string) error {
